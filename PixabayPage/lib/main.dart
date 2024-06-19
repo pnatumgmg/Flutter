@@ -79,7 +79,8 @@ class _PixabayPageState extends State<PixabayPage> {
 
               // 2 DLして保存
               Directory dir = await getTemporaryDirectory();
-              File file = await File("${dir.path}/image.png").writeAsBytes(response.data);
+              File file = await File("${dir.path}/image.png")
+                  .writeAsBytes(response.data);
 
               // シェアパッケージを呼び出して共有
               // 動画だと下記コードだがshare_plusの更新で使えなくなった
