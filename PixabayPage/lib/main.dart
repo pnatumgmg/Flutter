@@ -30,13 +30,46 @@ class PixabayPage extends StatefulWidget {
 class _PixabayPageState extends State<PixabayPage> {
 
   //はじめは空のリストを入れておく
-  List hits = [];
+  List<PixabayImage> pixabayImages = [];
 
   Future<void> fetchImages(String text) async{
-    Response response = await Dio().get(
-      "https://pixabay.com/api/?key=44444193-7ee4c1f09606d21ec096c9681&q=$text&image_type=photo&per_page=100");
-    hits = response.data["hits"];
+    final Response response = await Dio().get(
+      // "https://pixabay.com/api/?key=44444193-7ee4c1f09606d21ec096c9681&q=$text&image_type=photo&per_page=100"
+      "https://pixabay.com/api" ,
+      queryParameters : {
+        "key"         : '44444193-7ee4c1f09606d21ec096c9681' ,
+        "q"           : text ,
+        "image_type"  : "photo" ,
+        "per_page"    : 100,
+      },
+      );
+    final List hits = response.data["hits"];
+    pixabayImages = hits
+    .map(
+      (e){
+        return PixabayImage.fromMap(e);
+      },
+    ).toList();
     setState(() {});
+  }
+  ///画像をシェアする
+  Future<void> shareImage(String url) async {
+    // 1 URLからDL
+              final Response response = await Dio().get(
+                url,
+              options: Options(responseType: ResponseType.bytes),
+              );
+
+              // 2 DLして保存
+              final Directory dir = await getTemporaryDirectory();
+              final File file = await File("${dir.path}/image.png")
+                  .writeAsBytes(response.data);
+
+              // シェアパッケージを呼び出して共有
+              // 動画だと下記コードだがshare_plusの更新で使えなくなった
+              // await Share.shareFiles([file.path]);
+              // 詳細右記参照:https://zenn.dev/joo_hashi/articles/19550230e0d004
+              Share.shareXFiles([XFile(file.path)], text: 'Great picture');
   }
 
   @override
@@ -65,35 +98,19 @@ class _PixabayPageState extends State<PixabayPage> {
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           ),
-        itemCount: hits.length,
+        itemCount: pixabayImages.length,
         itemBuilder: (context,index){
-          Map<String,dynamic> hit = hits[index];
+          final pixabayImage = pixabayImages[index];
           return InkWell(
             // onTap: () {
             onTap: () async{
-              // 1 URLからDL
-              Response response = await Dio().get(
-                hit["webformatURL"],
-              options: Options(responseType: ResponseType.bytes),
-              );
-
-              // 2 DLして保存
-              Directory dir = await getTemporaryDirectory();
-              File file = await File("${dir.path}/image.png")
-                  .writeAsBytes(response.data);
-
-              // シェアパッケージを呼び出して共有
-              // 動画だと下記コードだがshare_plusの更新で使えなくなった
-              // await Share.shareFiles([file.path]);
-              // 詳細右記参照:https://zenn.dev/joo_hashi/articles/19550230e0d004
-              Share.shareXFiles([XFile(file.path)], text: 'Great picture');
-              
+              shareImage(pixabayImage.webformatURL);
             },
             child: Stack(
               fit: StackFit.expand,
               children: [
                 Image.network(
-                  hit['previewURL'],
+                  pixabayImage.previewURL,
                   fit: BoxFit.fill,
                   ),
                 Align(
@@ -107,8 +124,7 @@ class _PixabayPageState extends State<PixabayPage> {
                           Icons.thumb_up_alt_outlined,
                           size: 14,
                         ),
-                        Text("${hit["likes"]}"),
-            
+                        Text("${pixabayImage.likes}"),
                       ],
                     ),
                   ),
@@ -121,3 +137,25 @@ class _PixabayPageState extends State<PixabayPage> {
     );
   }
 }
+
+class PixabayImage {
+  
+  final String webformatURL;
+  final String previewURL;
+  final int likes;
+
+  PixabayImage({
+    required this.webformatURL, 
+    required this.previewURL, 
+    required this.likes,
+  });
+
+  factory PixabayImage.fromMap(Map<String, dynamic> map){
+    return PixabayImage(
+      webformatURL: map["webformatURL"],
+      previewURL: map["previewURL"], 
+      likes: map["likes"]
+    );
+  }
+}
+
